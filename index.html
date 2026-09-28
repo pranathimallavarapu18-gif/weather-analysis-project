@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+  <meta name="theme-color" content="#0b0f19">
+  <meta name="description" content="Atmosphere — High-Precision Real-Time Professional Weather & Meteorology Dashboard.">
+  <title>Atmosphere — Professional Weather Dashboard</title>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Leaflet Map CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  
+  <!-- App Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="weather-clear-day">
+  <div class="ambient-glow" aria-hidden="true"></div>
+
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loading-overlay" aria-live="polite">
+    <div class="spinner"></div>
+    <p style="font-weight: 600; font-size: 1.05rem; color: #fff;">Fetching meteorology data...</p>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast" id="toast" role="alert" aria-live="assertive"></div>
+
+  <div class="app-container">
+    <!-- Header Section -->
+    <header>
+      <div class="top-navbar">
+        <div class="brand-logo">
+          <div class="brand-icon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/>
+            </svg>
+          </div>
+          <span>Atmosphere</span>
+        </div>
+
+        <div class="header-controls">
+          <button class="location-btn" id="gps-btn" title="Use current GPS location" aria-label="Use current GPS location">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polygon points="3 11 22 2 13 21 11 13 3 11"/>
+            </svg>
+            <span>My Location</span>
+          </button>
+
+          <div class="unit-toggle" role="group" aria-label="Temperature Unit Selection">
+            <button class="unit-btn active" id="unit-c" aria-label="Celsius">°C</button>
+            <button class="unit-btn" id="unit-f" aria-label="Fahrenheit">°F</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Search Bar -->
+      <div class="search-wrapper">
+        <div class="search-bar">
+          <svg class="search-icon-svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input 
+            type="search" 
+            id="search-input" 
+            class="search-input" 
+            placeholder="Search place, city, or landmark..." 
+            autocomplete="off"
+            autocapitalize="off"
+            spellcheck="false"
+            enterkeyhint="search"
+            aria-label="Search location"
+          />
+          <button class="search-action-btn" id="search-btn" aria-label="Submit search">
+            <span>Search</span>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Autocomplete Suggestions -->
+        <div class="autocomplete-results" id="autocomplete-results" role="listbox"></div>
+      </div>
+
+      <!-- Quick Chips -->
+      <div class="quick-chips" role="group" aria-label="Popular cities">
+        <span class="chip-label">Popular:</span>
+        <button class="chip-btn" data-city="New York">New York</button>
+        <button class="chip-btn" data-city="Tokyo">Tokyo</button>
+        <button class="chip-btn" data-city="London">London</button>
+        <button class="chip-btn" data-city="Paris">Paris</button>
+        <button class="chip-btn" data-city="Mumbai">Mumbai</button>
+        <button class="chip-btn" data-city="Sydney">Sydney</button>
+        <button class="chip-btn" data-city="Dubai">Dubai</button>
+      </div>
+    </header>
+
+    <!-- Main Dashboard Grid -->
+    <main class="dashboard-grid">
+      <!-- Left Column: Hero Card & Hourly Forecast -->
+      <div style="display: flex; flex-direction: column; gap: clamp(16px, 3vw, 24px); min-width: 0;">
+        <!-- Hero Weather Card -->
+        <div class="glass-card hero-weather-card">
+          <div class="location-header">
+            <div style="min-width: 0; flex: 1;">
+              <h1 class="location-name" id="location-title">Loading...</h1>
+              <p class="location-country-text" id="location-country">Detecting location</p>
+              <div class="location-coords">
+                <span>Lat: <strong id="coord-lat">--</strong></span>
+                <span>•</span>
+                <span>Lon: <strong id="coord-lon">--</strong></span>
+                <span>•</span>
+                <a href="#" target="_blank" id="gmaps-link" rel="noopener noreferrer">
+                  <span>Google Maps</span>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                    <polyline points="15 3 21 3 21 9"/>
+                    <line x1="10" y1="14" x2="21" y2="3"/>
+                  </svg>
+                </a>
+              </div>
+            </div>
+
+            <div class="weather-badge">
+              <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#22c55e;" aria-hidden="true"></span>
+              <span>Observed <span id="observation-time">--:--</span></span>
+            </div>
+          </div>
+
+          <div class="temp-display-area">
+            <div class="temp-huge-wrapper">
+              <span class="temp-huge" id="current-temp">--</span>
+              <span class="temp-unit" id="current-unit">°C</span>
+            </div>
+
+            <div class="weather-visual">
+              <div id="hero-weather-icon" class="weather-icon-large"></div>
+              <div class="weather-condition-text" id="condition-text">Sunny</div>
+            </div>
+          </div>
+
+          <div class="hero-footer-stats">
+            <div class="hero-stat-pill">
+              <span class="hero-stat-label">Today High</span>
+              <span class="hero-stat-value" id="today-max">--</span>
+            </div>
+            <div class="hero-stat-pill">
+              <span class="hero-stat-label">Today Low</span>
+              <span class="hero-stat-value" id="today-min">--</span>
+            </div>
+            <div class="hero-stat-pill">
+              <span class="hero-stat-label">Feels Like</span>
+              <span class="hero-stat-value" id="feels-like-hero">--</span>
+            </div>
+            <div class="hero-stat-pill">
+              <span class="hero-stat-label">Wind</span>
+              <span class="hero-stat-value" id="wind-hero">--</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 24-Hour Forecast Scrollable Card -->
+        <div class="glass-card">
+          <div class="section-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10"/>
+              <polyline points="12 6 12 12 16 14"/>
+            </svg>
+            <span>Hourly Forecast (24 Hours)</span>
+          </div>
+          <div class="hourly-scroll-container" id="hourly-container">
+            <!-- Populated dynamically via app.js -->
+          </div>
+        </div>
+
+        <!-- 7-Day Extended Forecast -->
+        <div class="glass-card">
+          <div class="section-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+              <line x1="16" y1="2" x2="16" y2="6"/>
+              <line x1="8" y1="2" x2="8" y2="6"/>
+              <line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+            <span>7-Day Weather Outlook</span>
+          </div>
+          <div class="daily-forecast-list" id="daily-container">
+            <!-- Populated dynamically via app.js -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Meteorological Details & Map -->
+      <div class="metrics-section">
+        <!-- Sun & Daylight Tracking -->
+        <div class="glass-card sun-card">
+          <div class="section-title" style="margin-bottom: 0;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/>
+              <path d="M12 2v2"/>
+              <path d="M12 20v2"/>
+              <path d="m4.93 4.93 1.41 1.41"/>
+              <path d="m17.66 17.66 1.41 1.41"/>
+              <path d="M2 12h2"/>
+              <path d="M20 12h2"/>
+              <path d="m6.34 17.66-1.41 1.41"/>
+              <path d="m19.07 4.93-1.41 1.41"/>
+            </svg>
+            <span>Sun & Solar Daylight</span>
+          </div>
+
+          <div class="sun-times">
+            <div class="sun-time-item">
+              <div class="sun-icon" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m12 2 3 5h6v6l5 3-5 3v6h-6l-3 5-3-5H3v-6L-2 12l5-3V3h6Z"/>
+                </svg>
+              </div>
+              <div>
+                <div class="sun-time-title">Sunrise</div>
+                <div class="sun-time-val" id="sunrise-time">--:--</div>
+              </div>
+            </div>
+
+            <div class="sun-time-item">
+              <div class="sun-icon sunset" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 10V2"/>
+                  <path d="m4.93 10.93 1.41 1.41"/>
+                  <path d="M2 18h2"/>
+                  <path d="M20 18h2"/>
+                  <path d="m19.07 10.93-1.41 1.41"/>
+                  <path d="M22 22H2"/>
+                  <path d="m8 6 4-4 4 4"/>
+                  <path d="M16 18a4 4 0 0 0-8 0"/>
+                </svg>
+              </div>
+              <div>
+                <div class="sun-time-title">Sunset</div>
+                <div class="sun-time-val" id="sunset-time">--:--</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="daylight-bar-wrapper">
+            <div class="daylight-progress-bar">
+              <div class="daylight-fill" id="daylight-fill"></div>
+            </div>
+            <span style="font-size: 0.78rem; color: var(--text-dim); text-align: right;" id="daylight-status-text">Daylight Progress</span>
+          </div>
+        </div>
+
+        <!-- Metric Grid -->
+        <div class="metrics-grid">
+          <!-- Feels Like -->
+          <div class="glass-card metric-card">
+            <div class="metric-header">
+              <span>Feels Like</span>
+              <svg class="metric-header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/>
+              </svg>
+            </div>
+            <div class="metric-body">
+              <span class="metric-value" id="metric-feels">--</span>
+              <span class="metric-unit" id="metric-feels-unit">°C</span>
+            </div>
+            <div class="metric-status" id="metric-feels-status">Calculating comfort...</div>
+          </div>
+
+          <!-- Humidity -->
+          <div class="glass-card metric-card">
+            <div class="metric-header">
+              <span>Humidity</span>
+              <svg class="metric-header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
+              </svg>
+            </div>
+            <div class="metric-body">
+              <span class="metric-value" id="metric-humidity">--</span>
+              <span class="metric-unit">%</span>
+            </div>
+            <div class="metric-status" id="metric-humidity-status">Optimal moisture</div>
+          </div>
+
+          <!-- Wind -->
+          <div class="glass-card metric-card">
+            <div class="metric-header">
+              <span>Wind Speed</span>
+              <svg class="metric-header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/>
+              </svg>
+            </div>
+            <div class="metric-body">
+              <span class="metric-value" id="metric-wind">--</span>
+            </div>
+            <div class="metric-status" id="metric-wind-dir">Direction: --</div>
+          </div>
+
+          <!-- Pressure -->
+          <div class="glass-card metric-card">
+            <div class="metric-header">
+              <span>Pressure</span>
+              <svg class="metric-header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="m14 14-4-4 4-4"/>
+                <path d="M12 18V6"/>
+              </svg>
+            </div>
+            <div class="metric-body">
+              <span class="metric-value" id="metric-pressure">--</span>
+              <span class="metric-unit">hPa</span>
+            </div>
+            <div class="metric-status">Barometric level</div>
+          </div>
+
+          <!-- UV Index -->
+          <div class="glass-card metric-card" style="grid-column: span 2;">
+            <div class="metric-header">
+              <span>UV Index</span>
+              <svg class="metric-header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <circle cx="12" cy="12" r="5"/>
+                <line x1="12" y1="1" x2="12" y2="3"/>
+                <line x1="12" y1="21" x2="12" y2="23"/>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                <line x1="1" y1="12" x2="3" y2="12"/>
+                <line x1="21" y1="12" x2="23" y2="12"/>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+              </svg>
+            </div>
+            <div class="metric-body">
+              <span class="metric-value" id="metric-uv">--</span>
+              <span class="metric-unit">/ 11+</span>
+            </div>
+            <div class="metric-status" id="metric-uv-status">Low UV exposure risk</div>
+          </div>
+        </div>
+
+        <!-- Interactive Map Widget -->
+        <div class="glass-card" style="padding: clamp(12px, 2vw, 16px);">
+          <div class="section-title" style="margin-bottom: 10px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
+              <line x1="8" y1="2" x2="8" y2="18"/>
+              <line x1="16" y1="6" x2="16" y2="22"/>
+            </svg>
+            <span>Geographical Location</span>
+          </div>
+          <div class="map-embed-container" id="map">
+            <a href="#" target="_blank" class="map-overlay-btn" id="map-embed-link" rel="noopener noreferrer">
+              <span>View in Google Maps</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                <polyline points="15 3 21 3 21 9"/>
+                <line x1="10" y1="14" x2="21" y2="3"/>
+              </svg>
+            </a>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer>
+      <p>Data powered by <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> & <a href="https://www.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap Nominatim</a></p>
+      <p>Atmosphere • High-Precision Real-Time Meteorological Dashboard</p>
+    </footer>
+  </div>
+
+  <!-- Leaflet Map JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <!-- App JS -->
+  <script src="app.js"></script>
+</body>
+</html>
